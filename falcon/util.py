@@ -19,12 +19,6 @@ limitations under the License.
 import datetime
 import six
 
-if six.PY3:  # pragma nocover
-    from urllib.parse import quote as url_quote
-else:  # pragma nocover
-    from urllib import quote as url_quote
-
-
 __all__ = ('dt_to_http', 'http_date_to_dt', 'to_query_str', 'percent_escape')
 
 
@@ -106,10 +100,28 @@ def percent_escape(url):
         encoded to a UTF-8 byte string to work around a urllib
         bug.
     """
-
     # Convert the string so that urllib.quote does not complain
     # if it actually has Unicode chars in it.
     if not six.PY3 and isinstance(url, six.text_type):  # pragma nocover
         url = url.encode('utf-8')
 
-    return url_quote(url, safe='/:,=?&-_')
+    return _url_quote(url)
+
+
+# Use a home-brewed url quote, as we know what our escape chars are
+_always_safe = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                  'abcdefghijklmnopqrstuvwxyz'
+                  '0123456789' '_.' '/:,=?&')
+_mapping = []
+for i in xrange(256):
+    c = chr(i)
+    if i >= 128 or c not in _always_safe:
+        c = '%{:02X}'.format(i)
+    _mapping.append(c)
+def _url_quote(url):
+    global _mapping
+    newurl = []
+    for c in url:
+        i = ord(c)
+        newurl.append(_mapping[i])
+    return ''.join(newurl) 
